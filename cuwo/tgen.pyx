@@ -416,12 +416,23 @@ def add_creature(uint64_t id):
 cdef dict creature_map = {}
 
 cdef void get_creature_map(CCreature * c) nogil except +:
-    cdef WrapCreature wrap = WrapCreature.__new__(WrapCreature)
-    if c == NULL:
-        creature_map[wrap.data[0].entity_id] = NULL
-    else:
-        wrap._init_ptr(<Creature*>c)
-        creature_map[wrap.data[0].entity_id] = wrap
+    """
+    Função chamada pelo C++ para cada criatura.
+    Operações Python são feitas dentro de 'with gil'.
+    """
+    cdef WrapCreature wrap
+    if c != NULL:
+        # parte de manipulação C puro
+        pass
+    # Atribuições Python precisam do GIL
+    with gil:
+        wrap = WrapCreature.__new__(WrapCreature)
+        if c == NULL:
+            # Não há criatura, map vazia ou NULL
+            creature_map[0] = None
+        else:
+            wrap._init_ptr(<Creature*>c)
+            creature_map[wrap.data[0].entity_id] = wrap
 
 def get_creatures():
     creature_map.clear()
