@@ -415,46 +415,34 @@ def add_creature(uint64_t id):
 
 cdef dict creature_map = {}
 
-# Função chamada pelo sim_get_creatures (somente C++, sem Python, sem GIL)
+# Função C++ pura chamada pelo sim_get_creatures
 cdef void get_creature_map_nogil(CCreature * c) nogil:
-    # Nada de Python aqui, só placeholders ou IDs se necessário
-    pass  # Opcional: armazenar dados C++ básicos, mas sem Python
+    # Apenas armazenamos ponteiros temporariamente para Python
+    if c != NULL:
+        # Armazena o ponteiro como uintptr_t (inteiro) para acessar depois com GIL
+        creature_map[<uintptr_t>c] = None
 
-# Função Python que cria WrapCreature e atualiza o dicionário
-cdef void _update_creature_map(CCreature * c) nogil:
-    # Esta função não deve ter Python dentro, só prepara dados se quiser
-    # Realmente a conversão completa acontece na função com GIL abaixo
-    pass
-
-cpdef get_creatures():
-    """
-    Retorna o dicionário de criaturas como WrapCreature.
-    Chama a função C++ com GIL separado.
-    """
+# Função Python que cria os WrapCreature
+def get_creatures():
     cdef CCreature * c
+    cdef WrapCreature wrap
+    cdef uintptr_t ptr
+
     creature_map.clear()
     
-    # Função auxiliar que cria WrapCreature com GIL
-    cdef void py_creature_callback(CCreature * c) nogil:
-        # Não usar Python aqui! Apenas marcar ponteiros se necessário
-        pass
-
-    # Chama sim_get_creatures para iterar sobre todas as criaturas C++
+    # Chama a função C++ (nogil)
     sim_get_creatures(<void (*)(CCreature*)>get_creature_map_nogil)
     
-    # Agora iteramos os ponteiros C++ e criamos objetos Python com GIL
-    # Essa parte precisa ser feita fora de 'nogil'
+    # Agora, com GIL, convertemos os ponteiros em objetos Python
     with gil:
-        # Exemplo: convertendo ponteiros C++ para WrapCreature Python
-        # Se get_creature_map_nogil armazenou IDs, percorra-os aqui
-        # Para simplificação, vamos criar WrapCreature para cada ponteiro
-        # Exemplo genérico, adaptar conforme sua estrutura de ponteiros
-        for c in creature_map.values():  # supondo que tenha IDs ou ponteiros
+        cdef dict py_map = {}
+        for ptr in creature_map.keys():
+            c = <CCreature*>ptr
             wrap = WrapCreature.__new__(WrapCreature)
             wrap._init_ptr(<Creature*>c)
-            creature_map[wrap.data[0].entity_id] = wrap
+            py_map[wrap.data[0].entity_id] = wrap
 
-    return creature_map
+    return py_map
 
 
 def set_in_packets(list hits, list passives):
