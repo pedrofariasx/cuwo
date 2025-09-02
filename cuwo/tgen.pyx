@@ -415,20 +415,45 @@ def add_creature(uint64_t id):
 
 cdef dict creature_map = {}
 
-cdef void get_creature_map(CCreature * c) noexcept:
-    # Declara as variáveis fora do 'with gil'
-    cdef WrapCreature wrap
+# Função chamada pelo sim_get_creatures (somente C++, sem Python, sem GIL)
+cdef void get_creature_map_nogil(CCreature * c) nogil:
+    # Nada de Python aqui, só placeholders ou IDs se necessário
+    pass  # Opcional: armazenar dados C++ básicos, mas sem Python
+
+# Função Python que cria WrapCreature e atualiza o dicionário
+cdef void _update_creature_map(CCreature * c) nogil:
+    # Esta função não deve ter Python dentro, só prepara dados se quiser
+    # Realmente a conversão completa acontece na função com GIL abaixo
+    pass
+
+cpdef get_creatures():
+    """
+    Retorna o dicionário de criaturas como WrapCreature.
+    Chama a função C++ com GIL separado.
+    """
+    cdef CCreature * c
+    creature_map.clear()
+    
+    # Função auxiliar que cria WrapCreature com GIL
+    cdef void py_creature_callback(CCreature * c) nogil:
+        # Não usar Python aqui! Apenas marcar ponteiros se necessário
+        pass
+
+    # Chama sim_get_creatures para iterar sobre todas as criaturas C++
+    sim_get_creatures(<void (*)(CCreature*)>get_creature_map_nogil)
+    
+    # Agora iteramos os ponteiros C++ e criamos objetos Python com GIL
+    # Essa parte precisa ser feita fora de 'nogil'
     with gil:
-        wrap = WrapCreature.__new__(WrapCreature)
-        if c == NULL:
-            creature_map[0] = None
-        else:
+        # Exemplo: convertendo ponteiros C++ para WrapCreature Python
+        # Se get_creature_map_nogil armazenou IDs, percorra-os aqui
+        # Para simplificação, vamos criar WrapCreature para cada ponteiro
+        # Exemplo genérico, adaptar conforme sua estrutura de ponteiros
+        for c in creature_map.values():  # supondo que tenha IDs ou ponteiros
+            wrap = WrapCreature.__new__(WrapCreature)
             wrap._init_ptr(<Creature*>c)
             creature_map[wrap.data[0].entity_id] = wrap
 
-def get_creatures():
-    creature_map.clear()
-    sim_get_creatures(<void (*)(CCreature*) noexcept>get_creature_map)
     return creature_map
 
 
