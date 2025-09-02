@@ -415,10 +415,10 @@ def add_creature(uint64_t id):
 
 cdef dict creature_map = {}
 
-cdef void get_creature_map(CCreature * c):
+cdef void get_creature_map(CCreature * c) nogil except +:
     cdef WrapCreature wrap = WrapCreature.__new__(WrapCreature)
     if c == NULL:
-        creature_map[wrap.data[0].entity_id] = None
+        creature_map[wrap.data[0].entity_id] = NULL
     else:
         wrap._init_ptr(<Creature*>c)
         creature_map[wrap.data[0].entity_id] = wrap
